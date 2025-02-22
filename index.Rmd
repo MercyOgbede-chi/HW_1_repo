@@ -4,9 +4,9 @@ library(sf)
 
 mainLink='https://github.com/DACSS-CSSmeths/Spatial-Exploring/raw/refs/heads/main/'
 mapLink=paste0(mainLink,'maps/countriesCIA.gpkg')
+my_map = 'https://github.com/MercyOgbede-chi/HW_1_repo/raw/refs/heads/main/interestingCountries.gpkg'
 
-
-countriesCIA=read_sf(mapLink, layer='cia')
+interestingCountries=read_sf(my_map, layer='cia')
 worldBorders=read_sf(mapLink, layer='border')
 ```
 
