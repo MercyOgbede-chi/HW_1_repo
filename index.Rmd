@@ -1,0 +1,35 @@
+```{r}
+rm(list = ls())
+library(sf)
+
+mainLink='https://github.com/DACSS-CSSmeths/Spatial-Exploring/raw/refs/heads/main/'
+mapLink=paste0(mainLink,'maps/countriesCIA.gpkg')
+
+
+countriesCIA=read_sf(mapLink, layer='cia')
+worldBorders=read_sf(mapLink, layer='border')
+```
+
+## A Choropleth for CONTINUOUS values
+
+Here you find the last version for this case:
+
+```{r}
+library(ggplot2)
+
+base=ggplot(data = worldBorders)+geom_sf(fill='grey',color=NA) + theme_linedraw()
+```
+
+```{r}
+maskToClip=as.vector(st_bbox(interestingCountries))
+
+base + geom_sf(data=interestingCountries,fill='yellow') + 
+  coord_sf(xlim = c(maskToClip[1],maskToClip[3]), 
+           ylim = c(maskToClip[2],maskToClip[4])) +
+    geom_sf_text(data=interestingCountries,
+                 aes(label=COUNTRY),
+                 color='blue',
+                 check_overlap = T,
+                 size=3,
+                 nudge_y = 0.15)
+```

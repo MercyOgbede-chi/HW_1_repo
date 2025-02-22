@@ -1,0 +1,192 @@
+
+<br> 
+<center><img src="https://github.com/DACSS-CSSmeths/guidelines/blob/main/pics/small_logo_ccs_meths.jpg?raw=true" width="700"></center>
+
+
+_____
+
+
+
+# Exploring spatial data
+
+Let me get the files we created in Python:
+
+```{r}
+rm(list = ls())
+library(sf)
+
+mainLink='https://github.com/DACSS-CSSmeths/Spatial-Exploring/raw/refs/heads/main/'
+mapLink=paste0(mainLink,'maps/countriesCIA.gpkg')
+
+
+countriesCIA=read_sf(mapLink, layer='cia')
+worldBorders=read_sf(mapLink, layer='border')
+```
+
+We have these interesting variables:
+```{r}
+names(countriesCIA)
+```
+
+## A Choropleth for CONTINUOUS values
+
+Here you find the last version for this case:
+
+```{r}
+library(ggplot2)
+
+base=ggplot(data = worldBorders)+geom_sf(fill='grey',color=NA) + theme_linedraw()
+base + geom_sf(data=countriesCIA,
+               aes(fill=TobaccoUse_perc), #variable for coloring geometry
+               color=NA) + # no borders
+    labs(fill="Tobacco use\n(grey = missing)") +
+    scale_fill_viridis_c(direction = 1,option='A') # this is MAGMA!
+```
+
+## A Choropleth for DISCRETIZED values
+
+Let's plot a diverging palette (choose from [here](https://ggplot2.tidyverse.org/reference/scale_brewer.html)) using the discrete version:
+
+```{r}
+
+
+base + geom_sf(data=countriesCIA,
+               aes(fill=tobacco_levels),color=NA) + 
+               labs(fill="Level",
+                    title='Tobaco use')+
+                    scale_fill_brewer(palette = "PiYG",direction = -1) 
+
+```
+
+## Creating layers from the discrete values
+
+```{r}
+customCols=c("green", "orange")
+base + geom_sf(data=countriesCIA[countriesCIA$tobacco_code%in%c(0,2),],
+               aes(fill=tobacco_levels),color=NA) + 
+               labs(fill="Level",
+                    title='Tobaco use')+
+                    scale_fill_manual(values = customCols)+
+    facet_grid(~tobacco_levels) + guides(fill="none")
+```
+
+# Beyond choroplething
+
+```{r}
+interestingCountries=countriesCIA[(countriesCIA$tobacco_code==4) & (countriesCIA$alcohol_code==4),]
+interestingCountries
+
+```
+```{r}
+maskToClip=as.vector(st_bbox(interestingCountries))
+
+base + geom_sf(data=interestingCountries,fill='yellow') + 
+  coord_sf(xlim = c(maskToClip[1],maskToClip[3]), 
+           ylim = c(maskToClip[2],maskToClip[4])) +
+    geom_sf_text(data=interestingCountries,
+                 aes(label=COUNTRY),
+                 color='blue',
+                 check_overlap = T,
+                 size=3,
+                 nudge_y = 0.15)
+```
+
+
+
+# Interactive maps
+
+We will use **leaflet** library:
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(leaflet)
+
+# create palette to fill polygons
+paletteFun=colorFactor(palette = "PiYG",reverse = T, 
+                       domain = countriesCIA$tobacco_levels)
+
+#popup labels when using your cursor
+popUp_labels <- sprintf("<strong>%s</strong>",
+                        countriesCIA$TobaccoUse_perc) %>% lapply(htmltools::HTML)
+
+# the base map: the WA boundaries (optional)
+base_map = leaflet() %>% 
+            addTiles()
+# adding a layer (main map layer)
+choroAll = base_map %>%
+         addPolygons(data=countriesCIA,
+                     stroke = F, # borders of polygon?
+                     opacity =  1, # # the closer to 0 the more transparent
+                     fillOpacity = 0.8, # color brigthness
+                     fillColor = ~paletteFun(tobacco_levels),# coloring
+                     label = popUp_labels, 
+                     labelOptions = labelOptions(
+                         style = list("font-weight" = "normal"),
+                         textsize = "15px",
+                         direction = "auto"))
+
+
+# You may need a legend:
+choroAll %>% addLegend(data=countriesCIA,
+                        position = "bottomright",
+                        pal = paletteFun,
+                        values = ~tobacco_levels,
+                        title = "Level",
+                        opacity = 1) 
+
+```
+
+
+
+
+```{r}
+# filtering
+countriesCIA_good=countriesCIA[countriesCIA$tobacco_code==0,]
+countriesCIA_mean=countriesCIA[countriesCIA$tobacco_code==2,]
+
+MyColors=c('green','orange')
+
+# one layer per group
+layer1= leaflet() %>% 
+            addTiles() %>%
+        addPolygons(data=countriesCIA_good,
+                    color=MyColors[1],
+                    fillOpacity = 1, # no transparency
+                    stroke = F,
+                    group = 'good') # LAYER as GROUP
+
+layer1_2= layer1%>%addPolygons(data=countriesCIA_mean,
+                               color=MyColors[2],
+                               fillOpacity = 0.5, # transparency!!!
+                               stroke = F,
+                               group = 'average')
+
+###### Let's add a _button_ that helps rezooming
+# this is the coordinates for start location (I chose Spain)
+textFun="function(btn, map){map.setView([40.416775, -3.703790], 2)}"
+
+finalZoom= layer1_2%>%
+    addEasyButton(
+        easyButton(icon="fa-home", # a symbol
+                   title="Zoom to Level 2", # when hovering mouse
+                   onClick=JS(textFun)))
+
+## the interactive menu
+finalZoomLayers=finalZoom %>% addLayersControl(
+        overlayGroups = c('good','average'),
+        options = layersControlOptions(collapsed = FALSE))
+finalZoomLayers
+```
+
+
+```{r}
+
+leaflet() %>% 
+            addTiles() %>%
+        addPolygons(data=interestingCountries) # LAYER as GROUP
+```
+
+
+
+
+
+
